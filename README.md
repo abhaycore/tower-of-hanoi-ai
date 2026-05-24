@@ -14,7 +14,7 @@ This project combines:
 
 ## 🎥 Preview
 
-Live Demo:
+Live Demo: https://tower-of-hanoi-ai-beta.vercel.app/
 
 ---
 
@@ -77,12 +77,6 @@ Live Demo:
 ├── assets/
 └── README.md
 ```
-
----
-
-# 🚀 Deployment
-
-
 
 ---
 
