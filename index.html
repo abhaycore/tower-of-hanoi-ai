@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tower of Hanoi - AI Game Engine</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@500;700&family=Orbitron:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/xplor" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #080b09; /* Matte black */
+            --accent-cyan: #15dbf6; /* Deep emerald green */
+            --accent-violet: #3fffc2; /* Darker emerald */
+            --accent-gold: #ffb700; /* Soft golden */
+            --grid-color: rgba(16, 185, 129, 0.05); /* Faint emerald grid */
+            --peg-color-1: #1a1c1b;
+            --peg-color-2: #0a0b0a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background-image: radial-gradient(circle at 50% 0%, #0f1813 0%, var(--bg-color) 70%);
+        }
+
+        /* Animated Background Canvas */
+        #bg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Perspective Grid Overlay */
+        .perspective-grid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            background-image: 
+                linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+                linear-gradient(to top, var(--grid-color) 1px, transparent 1px);
+            background-size: 40px 40px;
+            transform-origin: bottom;
+            transform: perspective(500px) rotateX(60deg);
+            pointer-events: none;
+            z-index: 0;
+            animation: gridMove 10s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% { background-position: 0px 0px; }
+            100% { background-position: 0px 40px; }
+        }
+
+        /* Floating Debug Text */
+        .debug-text {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            color: #fff;
+            opacity: 0.05;
+            text-align: right;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 36px 48px 12px;
+            z-index: 10;
+        }
+
+        .logo {
+            font-weight: 800;
+            font-size: 18px;
+            letter-spacing: -0.5px;
+            color: var(--accent-violet);
+        }
+
+        .title {
+            font-family: 'Space Grotesk', 'Orbitron', 'Inter', sans-serif;
+            font-size: 64px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            line-height: 1;
+            color: #edf3f7;
+            display: inline-block;
+            transform-origin: center left;
+            transform: perspective(900px) rotateY(-15deg) rotateX(2deg) skewY(-1deg);
+            text-shadow:
+                -1px 1px 0 rgba(186, 194, 205, 0.96),
+                -2px 2px 0 rgba(146, 161, 180, 0.92),
+                -3px 3px 0 rgba(98, 137, 185, 0.88),
+                -4px 4px 0 rgba(61, 100, 160, 0.84),
+                0 0 10px rgba(255, 255, 255, 0.96),
+                0 0 18px rgba(145, 196, 255, 0.72),
+                0 0 30px rgba(79, 138, 221, 0.38),
+                0 8px 16px rgba(0, 0, 0, 0.55);
+            margin-top: 2px;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .placeholder-right {
+            width: 24px;
+        }
+
+        /* Center Game Area */
+        .game-area {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            padding-bottom: 80px;
+            z-index: 5;
+        }
+
+        .pegs-container {
+            display: flex;
+            width: 80%;
+            max-width: 900px;
+            justify-content: space-between;
+            position: relative;
+            z-index: 2;
+        }
+
+        .peg-wrapper {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 33.33%;
+            cursor: pointer;
+        }
+
+        .peg {
+            width: 14px;
+            height: 220px;
+            background: linear-gradient(90deg, #9ca3af 0%, #ffffff 30%, #9ca3af 100%);
+            border-radius: 7px 7px 0 0;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        .peg-base {
+            width: 80px;
+            height: 12px;
+            background: linear-gradient(to bottom, #ffffff, #9ca3af);
+            border-radius: 6px;
+            margin-top: -2px;
+            z-index: 2;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.6);
+        }
+
+        .peg-label {
+            margin-top: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 28px;
+            min-height: 22px;
+            padding: 0 8px;
+            border-radius: 8px;
+            background: rgba(172, 255, 180, 0.22);
+            border: 1px solid rgba(172, 255, 180, 0.5);
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 800;
+            color: #fff27a;
+            font-variant: small-caps;
+            letter-spacing: 1px;
+            text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65), 0 0 6px rgba(255, 242, 122, 0.35);
+            box-shadow: 0 0 10px rgba(172, 255, 180, 0.22);
+        }
+
+        .peg-wrapper.active .peg {
+            box-shadow: 0 0 18px rgba(127, 231, 255, 0.55), inset 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .peg-wrapper.active .peg-label {
+            box-shadow: 0 0 16px rgba(172, 255, 180, 0.4);
+            transform: translateY(-1px) scale(1.04);
+        }
+
+        /* Disks Rendering Layer */
+        #disks-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: auto;
+            z-index: 10;
+        }
+
+        .disk {
+            position: absolute;
+            height: 24px;
+            border-radius: 12px;
+            will-change: transform;
+            transform-origin: center center;
+            transition: filter 0.2s, transform 0.15s ease, box-shadow 0.2s ease;
+            z-index: 10;
+            pointer-events: auto;
+            cursor: pointer;
+            touch-action: none;
+        }
+        
+        .disk:hover {
+            filter: brightness(1.15);
+        }
+
+        .disk.selected {
+            z-index: 120;
+            filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.85)) drop-shadow(0 0 22px rgba(127, 231, 255, 0.75));
+        }
+
+        .disk.moving {
+            z-index: 100;
+            filter: drop-shadow(0 12px 16px rgba(0,0,0,0.6)) drop-shadow(0 0 12px rgba(255, 255, 255, 0.8));
+        }
+        
+        .disk.moving .disk-glow {
+            border: 1px solid #fff;
+            box-shadow: inset 0 0 8px rgba(255,255,255,0.8);
+        }
+
+        .disk-surface {
+            position: absolute;
+            inset: 0;
+            border-radius: 12px;
+            clip-path: inset(0 0 8px 0);
+            overflow: hidden;
+        }
+
+        .disk-surface::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.08) 18%, rgba(255,255,255,0) 45%);
+            pointer-events: none;
+        }
+
+        .disk-surface::after {
+            content: '';
+            position: absolute;
+            top: 4px;
+            left: 10%;
+            width: 80%;
+            height: 32%;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.12);
+            filter: blur(2px);
+            pointer-events: none;
+        }
+
+        .disk-front {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 12px;
+            border-radius: 0 0 12px 12px;
+            background: rgba(0,0,0,0.18);
+        }
+
+        .disk-glow {
+            position: absolute;
+            inset: 1px;
+            border-radius: 11px;
+            border: 0.5px solid rgba(255,255,255,0.5);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+        }
+
+        /* Stats & Feedback */
+        .stats-container {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 10;
+            height: 60px;
+        }
+
+        .step-counter {
+            font-family: 'Sora', 'Inter', sans-serif;
+            font-size: 40px;
+            font-weight: 900;
+            color: #9cffac;
+            margin-bottom: 8px;
+            transition: opacity 0.1s ease-in-out, color 0.3s ease, transform 0.2s ease, text-shadow 0.3s ease;
+            text-shadow: 0 0 10px rgba(156, 255, 172, 0.35);
+            line-height: 1;
+            transform-origin: center;
+        }
+
+        .step-counter.status-ready { color: #9cffac; text-shadow: 0 0 12px rgba(156, 255, 172, 0.45); }
+        .step-counter.status-move { color: #ffd84a; text-shadow: 0 0 12px rgba(255, 216, 74, 0.42); }
+        .step-counter.status-solved { color: #85ff9e; text-shadow: 0 0 12px rgba(133, 255, 158, 0.45); }
+        .step-counter.status-wrong { color: #ff5252; text-shadow: 0 0 12px rgba(255, 82, 82, 0.55); animation: wrongPulse 0.38s ease; }
+
+        @keyframes wrongPulse {
+            0% { transform: scale(1); }
+            35% { transform: scale(1.14); }
+            70% { transform: scale(0.98); }
+            100% { transform: scale(1); }
+        }
+
+        .timer {
+            font-family: 'Space Mono', monospace;
+            font-size: 20px;
+            font-weight: 800;
+            color: #ffffff;
+            opacity: 0.8;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.42), 0 0 14px rgba(147, 197, 253, 0.28);
+        }
+
+        .move-counter {
+            font-family: 'Space Grotesk', 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            color: #8bf59c;
+            margin-top: 6px;
+            letter-spacing: 0.4px;
+            text-shadow: 0 0 10px rgba(139, 245, 156, 0.22);
+        }
+
+        /* Bottom Controls */
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 24px 48px;
+            background: rgba(10, 14, 39, 0.8);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(255,255,255,0.05);
+            z-index: 10;
+        }
+
+        .btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            padding: 0 20px;
+            height: 40px;
+            border-radius: 20px;
+            font-family: 'Sora', 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: rgba(255,255,255,0.05);
+            transform: scale(0.99);
+        }
+        
+        .btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: var(--accent-cyan);
+            border: none;
+            color: #000;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: rgba(0, 217, 255, 0.85);
+        }
+
+        .btn-outline {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .btn-outline:hover:not(:disabled) {
+            background: rgba(0, 217, 255, 0.1);
+        }
+
+        .btn-icon {
+            width: 40px;
+            padding: 0;
+            border-color: var(--accent-cyan);
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-icon:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .btn-icon svg {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-icon.clicked svg {
+            transform: rotate(360deg);
+        }
+
+        /* Disk Input Stepper */
+        .stepper {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.2);
+            border: 0.5px solid var(--accent-cyan);
+            border-radius: 20px;
+            height: 40px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 217, 255, 0.05);
+        }
+
+        .stepper-input {
+            width: 32px;
+            text-align: center;
+            font-family: 'Space Mono', monospace;
+            font-size: 14px;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .stepper-btn {
+            background: transparent;
+            border: none;
+            color: #fff;
+            width: 32px;
+            height: 100%;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 16px;
+        }
+
+        .stepper-btn:hover:not(:disabled) {
+            background: rgba(0, 217, 255, 0.15);
+        }
+        
+        .stepper-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .spacer {
+            width: 1px;
+            height: 24px;
+            background: rgba(255,255,255,0.1);
+            margin: 0 8px;
+        }
+
+        /* Speed Control */
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .speed-display {
+            font-family: 'Space Grotesk', 'Inter', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            text-shadow: 0 0 8px rgba(0, 217, 255, 0.4);
+            width: 64px;
+            text-align: center;
+            transition: transform 0.2s, text-shadow 0.2s;
+        }
+
+        .speed-pulse {
+            transform: scale(1.05);
+            text-shadow: 0 0 16px rgba(0, 217, 255, 0.8);
+        }
+
+        /* Canvas & Effects */
+        #effects-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .ripple {
+            position: absolute;
+            border: 0.5px solid var(--accent-cyan);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: ripple-anim 0.4s ease-out forwards;
+            pointer-events: none;
+        }
+
+        @keyframes ripple-anim {
+            0% { width: 80px; height: 12px; opacity: 1; }
+            100% { width: 140px; height: 32px; opacity: 0; }
+        }
+
+        /* Accessibility Focus */
+        :focus-visible {
+            outline: 2px solid var(--accent-cyan);
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background Layers -->
+    <canvas id="bg-canvas"></canvas>
+    <div class="perspective-grid"></div>
+    <div class="debug-text" id="debugText" aria-hidden="true">hanoi-solver v1.2<br>optimal: 0 moves</div>
+
+    <!-- UI: Top Header -->
+    <header class="top-bar" style="justify-content: center;">
+        <div class="title">Tower of Hanoi</div>
+    </header>
+
+    <!-- UI: Game Board Area -->
+    <main class="game-area" id="gameArea">
+        <div class="stats-container">
+            <div class="step-counter" id="stepCounter" aria-live="polite">Ready</div>
+            <div class="timer" id="timerDisplay">00:00</div>
+            <div class="move-counter" id="moveCounter" aria-live="polite">Moves: 0</div>
+        </div>
+        
+        <div class="pegs-container" id="pegsContainer">
+            <div class="peg-wrapper" id="peg-0">
+                <div class="peg"></div>
+                <div class="peg-base"></div>
+                <div class="peg-label">A</div>
+            </div>
+            <div class="peg-wrapper" id="peg-1">
+                <div class="peg"></div>
+                <div class="peg-base"></div>
+                <div class="peg-label">B</div>
+            </div>
+            <div class="peg-wrapper" id="peg-2">
+                <div class="peg"></div>
+                <div class="peg-base"></div>
+                <div class="peg-label">C</div>
+            </div>
+        </div>
+        
+        <div id="disks-layer"></div>
+        <canvas id="effects-canvas"></canvas>
+    </main>
+
+    <!-- UI: Bottom Control Bar -->
+    <footer class="controls">
+        <div class="stepper">
+            <button class="stepper-btn" id="btnMinus" aria-label="Decrease disks">−</button>
+            <div class="stepper-input" id="diskCount" role="status">5</div>
+            <button class="stepper-btn" id="btnPlus" aria-label="Increase disks">+</button>
+        </div>
+
+        <button class="btn btn-primary" id="btnSolve">Solve</button>
+        <button class="btn btn-outline" id="btnReset">Reset</button>
+        
+        <div class="spacer"></div>
+        
+        <div class="speed-control" style="gap: 12px;">
+            <button class="btn btn-icon" id="btnSpeedDown" aria-label="Decrease speed">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <input type="range" id="speedSlider" min="0.5" max="5.0" step="0.25" value="1.0" style="width: 80px; accent-color: var(--accent-cyan); cursor: pointer;">
+            <div class="speed-display" id="speedDisplay" role="status" style="min-width: 50px;">1.00×</div>
+            <button class="btn btn-icon" id="btnSpeedUp" aria-label="Increase speed">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+            <button class="btn btn-icon" id="btnPause" aria-label="Pause/Play" style="display: none;">
+                <svg id="iconPause" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                <svg id="iconPlay" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        // ---------------------------------------------------------------------
+        // CONFIGURATION & CONSTANTS
+        // ---------------------------------------------------------------------
+        const DISK_COLORS = [
+            '#ff3b3b',
+            '#ff8a1f',
+            '#ffd93b',
+            '#71ff4d',
+            '#35f7c7',
+            '#33c8ff',
+            '#3f7dff',
+            '#9b5cff',
+            '#ff59d6',
+            '#ff6fb0',
+            '#ff4fd8',
+            '#8dff5c',
+            '#4dffef',
+            '#ffe76d',
+            '#00e5ff'
+        ];
+
+        const BACKGROUND_PALETTE = [
+            '#ffffff',
+            '#ff5252',
+            '#ff8a1f',
+            '#ffd84a',
+            '#60ff76',
+            '#33d9ff',
+            '#4f7cff',
+            '#c16bff',
+            '#ff77d6'
+        ];
+        
+        const TIMING = {
+            BASE_LIFT: 200,
+            BASE_TRANSLATE: 250,
+            BASE_DROP: 150,
+            BASE_DELAY: 80,
+            MIN_PHASE: 50
+        };
+
+        const GEOMETRY = {
+            DISK_HEIGHT: 24,
+            STACK_GAP: 2,
+            PEG_HEIGHT: 220,
+            LIFT_OFFSET: 60 // Height above the peg to lift the disk
+        };
+
+        // ---------------------------------------------------------------------
+        // EASING FUNCTIONS
+        // ---------------------------------------------------------------------
+        function easeInOutCubic(t) {
+            return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        }
+        
+        function cubicBezierLift(t) {
+            // Mimics CSS cubic-bezier(0.34, 1.56, 0.64, 1) with slight overshoot
+            const c1 = 1.70158;
+            const c3 = c1 + 1;
+            return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+        }
+        
+        function easeIn(t) {
+            return t * t;
+        }
+
+        function hexToRgba(hex, alpha) {
+            const normalized = hex.replace('#', '');
+            const value = normalized.length === 3
+                ? normalized.split('').map(ch => ch + ch).join('')
+                : normalized;
+            const intValue = parseInt(value, 16);
+            const r = (intValue >> 16) & 255;
+            const g = (intValue >> 8) & 255;
+            const b = intValue & 255;
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        // ---------------------------------------------------------------------
+        // PARTICLE ENGINE (Canvas Rendering)
+        // ---------------------------------------------------------------------
+        class ParticleSystem {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.particles = [];
+                
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                
+                this.tick = this.tick.bind(this);
+                requestAnimationFrame(this.tick);
+            }
+
+            resize() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+            }
+
+            emit(x, y, count, color, isCelebration = false) {
+                for (let i = 0; i < count; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = isCelebration ? Math.random() * 6 + 2 : Math.random() * 2 + 0.5;
+                    this.particles.push({
+                        x, y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed - (isCelebration ? 4 : 0),
+                        life: 1.0,
+                        decay: isCelebration ? 0.015 + Math.random() * 0.01 : 0.03 + Math.random() * 0.02,
+                        color,
+                        size: isCelebration ? Math.random() * 4 + 2 : Math.random() * 2 + 1,
+                        gravity: isCelebration ? 0.1 : 0
+                    });
+                }
+            }
+
+            tick() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += p.gravity;
+                    p.life -= p.decay;
+                    
+                    if (p.life <= 0) {
+                        this.particles.splice(i, 1);
+                        continue;
+                    }
+
+                    this.ctx.globalAlpha = p.life;
+                    this.ctx.fillStyle = p.color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+
+                const trailPoints = window.gameEngine?.trailPoints || [];
+                if (trailPoints.length > 1) {
+                    this.ctx.save();
+                    this.ctx.lineCap = 'round';
+                    this.ctx.lineJoin = 'round';
+                    this.ctx.globalCompositeOperation = 'lighter';
+                    for (let i = 1; i < trailPoints.length; i++) {
+                        const start = trailPoints[i - 1];
+                        const end = trailPoints[i];
+                        const alpha = i / trailPoints.length;
+                        this.ctx.strokeStyle = `rgba(255, 255, 255, ${0.16 * alpha})`;
+                        this.ctx.lineWidth = 1.5 + alpha * 3;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(start.x, start.y);
+                        this.ctx.lineTo(end.x, end.y);
+                        this.ctx.stroke();
+
+                        this.ctx.strokeStyle = `rgba(90, 176, 255, ${0.18 * alpha})`;
+                        this.ctx.lineWidth = 0.8 + alpha * 1.6;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(start.x, start.y);
+                        this.ctx.lineTo(end.x, end.y);
+                        this.ctx.stroke();
+                    }
+                    this.ctx.restore();
+                }
+
+                this.ctx.globalAlpha = 1.0;
+                requestAnimationFrame(this.tick);
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // CORE GAME ENGINE
+        // ---------------------------------------------------------------------
+        class HanoiGame {
+            constructor() {
+                // Game State
+                this.numDisks = 5;
+                this.speedMultiplier = 1.0;
+                this.state = 'IDLE'; // IDLE, ANIMATING, PAUSED, COMPLETE
+                
+                this.pegs = [[], [], []];
+                this.diskElements = [];
+                this.diskPegMap = [];
+                this.moves = [];
+                this.currentMoveIndex = 0;
+                this.trailPoints = [];
+                this.playerMoveCount = 0;
+                this.aiMoveCount = 0;
+                
+                // Timing / Stats
+                this.elapsedMs = 0;
+                this.timerStartTimestamp = null;
+                this.timerInterval = null;
+
+                // Player Interaction
+                this.selectedPegIndex = null;
+                this.isUserPlaying = true;
+                this.isDraggingDisk = false;
+                this.draggedDiskId = null;
+                this.dragSourcePegIndex = null;
+                this.pendingDragDiskId = null;
+                this.pendingDragPegIndex = null;
+                this.pendingDragPointerId = null;
+                this.pendingDragStart = { x: 0, y: 0 };
+                this.dragOffset = { x: 0, y: 0 };
+                this.suppressDiskClick = false;
+                
+                // Animation Controller State
+                this.animPhase = 0; // 0: Lift, 1: Translate, 2: Drop, 3: Delay
+                this.animProgress = 0;
+                this.lastFrameTime = 0;
+                this.animRequestId = null;
+                this.currentMoveStartCoords = { x: 0, y: 0 };
+                this.currentMoveTargetCoords = { x: 0, y: 0 };
+                this.movingDiskIndex = -1;
+                this.currentTopY = 0;
+
+                // DOM Bindings
+                this.dom = {
+                    disksLayer: document.getElementById('disks-layer'),
+                    pegWrappers: [
+                        document.getElementById('peg-0'),
+                        document.getElementById('peg-1'),
+                        document.getElementById('peg-2')
+                    ],
+                    debugText: document.getElementById('debugText'),
+                    stepCounter: document.getElementById('stepCounter'),
+                    timerDisplay: document.getElementById('timerDisplay'),
+                    moveCounter: document.getElementById('moveCounter'),
+                    diskCount: document.getElementById('diskCount'),
+                    speedDisplay: document.getElementById('speedDisplay'),
+                    btnMinus: document.getElementById('btnMinus'),
+                    btnPlus: document.getElementById('btnPlus'),
+                    btnSolve: document.getElementById('btnSolve'),
+                    btnReset: document.getElementById('btnReset'),
+                    btnSpeedDown: document.getElementById('btnSpeedDown'),
+                    btnSpeedUp: document.getElementById('btnSpeedUp'),
+                    speedSlider: document.getElementById('speedSlider'),
+                    btnPause: document.getElementById('btnPause'),
+                    iconPause: document.getElementById('iconPause'),
+                    iconPlay: document.getElementById('iconPlay')
+                };
+
+                this.particles = new ParticleSystem('effects-canvas');
+                
+                this.bindEvents();
+                this.reset();
+                window.gameEngine = this;
+                
+                window.addEventListener('resize', () => {
+                    if (this.state === 'IDLE' || this.state === 'COMPLETE') {
+                        this.positionDisksInstantly();
+                    }
+                });
+            }
+
+            bindEvents() {
+                this.dom.btnMinus.addEventListener('click', () => this.updateDiskCount(-1));
+                this.dom.btnPlus.addEventListener('click', () => this.updateDiskCount(1));
+                this.dom.btnSolve.addEventListener('click', () => this.startSolve());
+                this.dom.btnReset.addEventListener('click', () => this.reset());
+                
+                this.dom.btnSpeedDown.addEventListener('click', (e) => this.updateSpeed(-0.25, e.currentTarget));
+                this.dom.btnSpeedUp.addEventListener('click', (e) => this.updateSpeed(0.25, e.currentTarget));
+                this.dom.speedSlider.addEventListener('input', (e) => this.setSpeed(parseFloat(e.target.value)));
+                this.dom.btnPause.addEventListener('click', () => this.togglePause());
+
+                this.dom.pegWrappers.forEach((pegWrapper, pegIndex) => {
+                    pegWrapper.addEventListener('click', () => this.handlePegClick(pegIndex));
+                });
+
+                window.addEventListener('pointermove', (event) => this.handleDiskDragMove(event));
+                window.addEventListener('pointerup', (event) => this.handleDiskDragEnd(event));
+                window.addEventListener('pointercancel', (event) => this.handleDiskDragEnd(event));
+
+                // Keyboard Accessibility
+                window.addEventListener('keydown', (e) => {
+                    if (e.key === 'ArrowLeft') this.updateSpeed(-0.25, this.dom.btnSpeedDown);
+                    if (e.key === 'ArrowRight') this.updateSpeed(0.25, this.dom.btnSpeedUp);
+                });
+            }
+
+            updateDiskCount(delta) {
+                if (this.state !== 'IDLE') return;
+                let newCount = this.numDisks + delta;
+                if (newCount >= 1 && newCount <= 15) {
+                    this.numDisks = newCount;
+                    this.dom.diskCount.textContent = this.numDisks;
+                    this.reset();
+                }
+            }
+
+            setSpeed(val) {
+                this.speedMultiplier = val;
+                this.dom.speedDisplay.textContent = this.speedMultiplier.toFixed(2) + '×';
+                this.dom.speedSlider.value = val;
+            }
+
+            updateMoveCounter() {
+                const total = this.playerMoveCount + this.aiMoveCount;
+                this.dom.moveCounter.textContent = `Moves: ${total} (You ${this.playerMoveCount} + AI ${this.aiMoveCount})`;
+            }
+
+            setStatus(text, tone = 'ready') {
+                const element = this.dom.stepCounter;
+                element.classList.remove('status-ready', 'status-move', 'status-wrong', 'status-solved');
+                element.classList.add(`status-${tone}`);
+                element.textContent = text;
+                if (tone === 'wrong') {
+                    void element.offsetWidth;
+                }
+            }
+
+            recordTrailPoint(x, y) {
+                this.trailPoints.push({ x, y });
+                if (this.trailPoints.length > 10) {
+                    this.trailPoints.shift();
+                }
+            }
+
+            animateBacktrack(diskId, sourcePegIndex, fromCoords, onComplete) {
+                const diskEl = this.diskElements[diskId];
+                const targetCoords = this.getDiskTargetCoords(sourcePegIndex, this.pegs[sourcePegIndex].length - 1);
+                const duration = 240;
+                const startTime = performance.now();
+
+                diskEl.classList.add('selected', 'moving');
+
+                const step = (timestamp) => {
+                    const elapsed = timestamp - startTime;
+                    const progress = Math.min(1, elapsed / duration);
+                    const eased = 1 - Math.pow(1 - progress, 3);
+                    const wobble = Math.sin(progress * Math.PI) * 0.12;
+                    const currentX = fromCoords.x + (targetCoords.x - fromCoords.x) * eased;
+                    const currentY = fromCoords.y + (targetCoords.y - fromCoords.y) * eased;
+                    const scale = 1 + wobble;
+
+                    diskEl.style.transform = `translate(${currentX}px, ${currentY}px) scale(${scale})`;
+                    this.recordTrailPoint(currentX, currentY);
+
+                    if (progress < 1) {
+                        requestAnimationFrame(step);
+                        return;
+                    }
+
+                    diskEl.classList.remove('moving');
+                    diskEl.style.transform = `translate(${targetCoords.x}px, ${targetCoords.y}px)`;
+                    this.trailPoints = [];
+                    if (onComplete) onComplete();
+                };
+
+                requestAnimationFrame(step);
+            }
+
+            getTopDiskId(pegIndex) {
+                const peg = this.pegs[pegIndex];
+                return peg.length ? peg[peg.length - 1] : null;
+            }
+
+            clearSelection() {
+                this.selectedPegIndex = null;
+                this.dom.pegWrappers.forEach(pegWrapper => pegWrapper.classList.remove('active'));
+                this.diskElements.forEach(disk => disk.classList.remove('selected'));
+            }
+
+            canPlaceDiskOnTop(movingDiskId, targetTopDiskId) {
+                return targetTopDiskId === null || movingDiskId > targetTopDiskId;
+            }
+
+            getPegIndexFromClientX(clientX) {
+                let closestPegIndex = 0;
+                let closestDistance = Infinity;
+
+                for (let pegIndex = 0; pegIndex < this.dom.pegWrappers.length; pegIndex++) {
+                    const centerX = this.getPegCenterCoords(pegIndex).x + this.dom.disksLayer.getBoundingClientRect().left;
+                    const distance = Math.abs(clientX - centerX);
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestPegIndex = pegIndex;
+                    }
+                }
+
+                return closestPegIndex;
+            }
+
+            getPegIndexForDisk(diskId) {
+                for (let pegIndex = 0; pegIndex < this.pegs.length; pegIndex++) {
+                    if (this.pegs[pegIndex].includes(diskId)) return pegIndex;
+                }
+                return -1;
+            }
+
+            selectDisk(diskId) {
+                const pegIndex = this.getPegIndexForDisk(diskId);
+                if (pegIndex === -1) return;
+                if (this.getTopDiskId(pegIndex) !== diskId) return;
+
+                this.clearSelection();
+                this.selectedPegIndex = pegIndex;
+                this.dom.pegWrappers[pegIndex].classList.add('active');
+                this.diskElements[diskId].classList.add('selected');
+                this.setStatus(`Move from ${String.fromCharCode(65 + pegIndex)}`, 'move');
+            }
+
+            handlePegClick(pegIndex) {
+                if (this.state !== 'IDLE') return;
+
+                const selectedPeg = this.selectedPegIndex;
+                const topDiskId = this.getTopDiskId(pegIndex);
+
+                if (selectedPeg === null) {
+                    if (topDiskId === null) return;
+                    this.selectedPegIndex = pegIndex;
+                    this.dom.pegWrappers[pegIndex].classList.add('active');
+                    this.setStatus(`Move from ${String.fromCharCode(65 + pegIndex)}`, 'move');
+                    return;
+                }
+
+                if (selectedPeg === pegIndex) {
+                    this.clearSelection();
+                    this.setStatus('Ready', 'ready');
+                    return;
+                }
+
+                const moved = this.tryMoveTopDisk(selectedPeg, pegIndex);
+                this.clearSelection();
+
+                if (!moved) {
+                    this.setStatus('Wrong move', 'wrong');
+                    setTimeout(() => {
+                        if (this.state === 'IDLE') {
+                            this.setStatus('Ready', 'ready');
+                        }
+                    }, 700);
+                } else {
+                    this.playerMoveCount++;
+                    this.updateMoveCounter();
+                    this.setStatus(`Move ${String.fromCharCode(65 + selectedPeg)} → ${String.fromCharCode(65 + pegIndex)}`, 'move');
+                }
+            }
+
+            handleDiskClick(diskId, event) {
+                if (this.state !== 'IDLE') return;
+                if (this.suppressDiskClick) {
+                    this.suppressDiskClick = false;
+                    return;
+                }
+                if (event) event.stopPropagation();
+
+                const pegIndex = this.getPegIndexForDisk(diskId);
+                if (pegIndex === -1) return;
+
+                const topDiskId = this.getTopDiskId(pegIndex);
+                if (topDiskId !== diskId) {
+                    this.setStatus('Wrong move', 'wrong');
+                    return;
+                }
+
+                if (this.selectedPegIndex === pegIndex) {
+                    this.clearSelection();
+                    this.setStatus('Ready', 'ready');
+                    return;
+                }
+
+                this.selectDisk(diskId);
+            }
+
+            handleDiskPointerDown(diskId, event) {
+                if (this.state !== 'IDLE') return;
+                if (event.button !== undefined && event.button !== 0) return;
+
+                const pegIndex = this.getPegIndexForDisk(diskId);
+                if (pegIndex === -1 || this.getTopDiskId(pegIndex) !== diskId) return;
+
+                this.pendingDragDiskId = diskId;
+                this.pendingDragPegIndex = pegIndex;
+                this.pendingDragPointerId = event.pointerId;
+                this.pendingDragStart = { x: event.clientX, y: event.clientY };
+                this.suppressDiskClick = false;
+                this.trailPoints = [];
+            }
+
+            handleDiskDragMove(event) {
+                if (this.pendingDragPointerId !== event.pointerId && this.dragPointerId !== event.pointerId) return;
+
+                if (!this.isDraggingDisk) {
+                    const dx = event.clientX - this.pendingDragStart.x;
+                    const dy = event.clientY - this.pendingDragStart.y;
+                    const movedDistance = Math.hypot(dx, dy);
+
+                    if (movedDistance < 6) return;
+
+                    const diskId = this.pendingDragDiskId;
+                    const pegIndex = this.pendingDragPegIndex;
+                    const diskEl = this.diskElements[diskId];
+                    const diskRect = diskEl.getBoundingClientRect();
+
+                    this.clearSelection();
+                    this.selectedPegIndex = pegIndex;
+                    this.dom.pegWrappers[pegIndex].classList.add('active');
+                    diskEl.classList.add('selected', 'moving');
+
+                    this.isDraggingDisk = true;
+                    this.draggedDiskId = diskId;
+                    this.dragSourcePegIndex = pegIndex;
+                    this.dragPointerId = event.pointerId;
+                    this.dragOffset = {
+                        x: event.clientX - diskRect.left,
+                        y: event.clientY - diskRect.top
+                    };
+
+                    this.trailPoints = [];
+
+                    if (diskEl.setPointerCapture) {
+                        diskEl.setPointerCapture(event.pointerId);
+                    }
+                }
+
+                if (!this.isDraggingDisk || this.dragPointerId !== event.pointerId) return;
+
+                const diskEl = this.diskElements[this.draggedDiskId];
+                const layerRect = this.dom.disksLayer.getBoundingClientRect();
+                const x = event.clientX - layerRect.left - this.dragOffset.x;
+                const y = event.clientY - layerRect.top - this.dragOffset.y;
+
+                diskEl.style.transform = `translate(${x}px, ${y}px)`;
+                this.dragCurrentCoords = { x, y };
+                this.recordTrailPoint(x, y);
+            }
+
+            handleDiskDragEnd(event) {
+                if (this.pendingDragPointerId !== event.pointerId && this.dragPointerId !== event.pointerId) return;
+
+                const wasDragging = this.isDraggingDisk;
+
+                if (!wasDragging) {
+                    this.pendingDragDiskId = null;
+                    this.pendingDragPegIndex = null;
+                    this.pendingDragPointerId = null;
+                    return;
+                }
+
+                const diskId = this.draggedDiskId;
+                const sourcePeg = this.dragSourcePegIndex;
+                const targetPeg = this.getPegIndexFromClientX(event.clientX);
+                const diskEl = this.diskElements[diskId];
+
+                this.isDraggingDisk = false;
+                this.draggedDiskId = null;
+                this.dragSourcePegIndex = null;
+                this.dragPointerId = null;
+                this.pendingDragDiskId = null;
+                this.pendingDragPegIndex = null;
+                this.pendingDragPointerId = null;
+                this.dragCurrentCoords = null;
+                this.suppressDiskClick = true;
+
+                if (diskEl.releasePointerCapture) {
+                    try {
+                        diskEl.releasePointerCapture(event.pointerId);
+                    } catch (error) {
+                        // Ignore capture release issues.
+                    }
+                }
+
+                const sourceCoords = this.getDiskTargetCoords(sourcePeg, this.pegs[sourcePeg].length - 1);
+                const moved = this.tryMoveTopDisk(sourcePeg, targetPeg);
+                this.clearSelection();
+
+                if (!moved) {
+                    this.setStatus('Wrong move', 'wrong');
+                    this.animateBacktrack(diskId, sourcePeg, this.dragCurrentCoords || sourceCoords, () => {
+                        this.clearSelection();
+                        if (this.state === 'IDLE') {
+                            this.setStatus('Ready', 'ready');
+                        }
+                    });
+                } else {
+                    this.playerMoveCount++;
+                    this.updateMoveCounter();
+                    this.setStatus(`Move ${String.fromCharCode(65 + sourcePeg)} → ${String.fromCharCode(65 + targetPeg)}`, 'move');
+                }
+            }
+
+            tryMoveTopDisk(fromPeg, toPeg) {
+                if (fromPeg === toPeg) return false;
+
+                const movingDiskId = this.getTopDiskId(fromPeg);
+                if (movingDiskId === null) return false;
+
+                const targetTopDiskId = this.getTopDiskId(toPeg);
+                if (!this.canPlaceDiskOnTop(movingDiskId, targetTopDiskId)) {
+                    this.positionDisksInstantly();
+                    return false;
+                }
+
+                this.pegs[fromPeg].pop();
+                this.pegs[toPeg].push(movingDiskId);
+                this.positionDisksInstantly();
+                return true;
+            }
+
+            generateMovesFromCurrentState(targetPeg = 2) {
+                const serialize = (pegs) => pegs.map(stack => stack.join(',')).join('|');
+                const cloneState = (pegs) => pegs.map(stack => stack.slice());
+                const isGoalState = (pegs) => pegs[targetPeg].length === this.numDisks;
+                const heuristic = (pegs) => {
+                    let misplaced = 0;
+                    for (let pegIndex = 0; pegIndex < pegs.length; pegIndex++) {
+                        if (pegIndex !== targetPeg) misplaced += pegs[pegIndex].length;
+                    }
+                    return misplaced;
+                };
+
+                const heap = [];
+                const pushHeap = (node) => {
+                    heap.push(node);
+                    let index = heap.length - 1;
+                    while (index > 0) {
+                        const parentIndex = Math.floor((index - 1) / 2);
+                        if (heap[parentIndex].f <= heap[index].f) break;
+                        [heap[parentIndex], heap[index]] = [heap[index], heap[parentIndex]];
+                        index = parentIndex;
+                    }
+                };
+
+                const popHeap = () => {
+                    if (heap.length === 0) return null;
+                    const root = heap[0];
+                    const last = heap.pop();
+                    if (heap.length > 0) {
+                        heap[0] = last;
+                        let index = 0;
+                        while (true) {
+                            const left = index * 2 + 1;
+                            const right = left + 1;
+                            let smallest = index;
+
+                            if (left < heap.length && heap[left].f < heap[smallest].f) smallest = left;
+                            if (right < heap.length && heap[right].f < heap[smallest].f) smallest = right;
+                            if (smallest === index) break;
+                            [heap[index], heap[smallest]] = [heap[smallest], heap[index]];
+                            index = smallest;
+                        }
+                    }
+                    return root;
+                };
+
+                const startState = cloneState(this.pegs);
+                const startKey = serialize(startState);
+                const gScore = new Map([[startKey, 0]]);
+                const cameFrom = new Map();
+
+                pushHeap({
+                    pegs: startState,
+                    key: startKey,
+                    g: 0,
+                    f: heuristic(startState)
+                });
+
+                let expanded = 0;
+                const expansionLimit = Math.max(5000, this.numDisks * 8000);
+
+                while (heap.length > 0) {
+                    const current = popHeap();
+                    if (!current) break;
+
+                    if (current.g !== gScore.get(current.key)) continue;
+                    if (isGoalState(current.pegs)) {
+                        const moves = [];
+                        let cursorKey = current.key;
+
+                        while (cameFrom.has(cursorKey)) {
+                            const entry = cameFrom.get(cursorKey);
+                            moves.push(entry.move);
+                            cursorKey = entry.prev;
+                        }
+
+                        return moves.reverse();
+                    }
+
+                    expanded++;
+                    if (expanded > expansionLimit) {
+                        break;
+                    }
+
+                    for (let fromPeg = 0; fromPeg < 3; fromPeg++) {
+                        const sourceStack = current.pegs[fromPeg];
+                        if (sourceStack.length === 0) continue;
+
+                        const movingDiskId = sourceStack[sourceStack.length - 1];
+
+                        for (let toPeg = 0; toPeg < 3; toPeg++) {
+                            if (fromPeg === toPeg) continue;
+
+                            const targetStack = current.pegs[toPeg];
+                            const targetTopDiskId = targetStack.length > 0 ? targetStack[targetStack.length - 1] : null;
+                            if (!this.canPlaceDiskOnTop(movingDiskId, targetTopDiskId)) continue;
+
+                            const nextState = cloneState(current.pegs);
+                            nextState[fromPeg].pop();
+                            nextState[toPeg].push(movingDiskId);
+
+                            const nextKey = serialize(nextState);
+                            const tentativeG = current.g + 1;
+                            if (gScore.has(nextKey) && tentativeG >= gScore.get(nextKey)) continue;
+
+                            gScore.set(nextKey, tentativeG);
+                            cameFrom.set(nextKey, {
+                                prev: current.key,
+                                move: { from: fromPeg, to: toPeg }
+                            });
+
+                            pushHeap({
+                                pegs: nextState,
+                                key: nextKey,
+                                g: tentativeG,
+                                f: tentativeG + heuristic(nextState)
+                            });
+                        }
+                    }
+                }
+
+                return [];
+            }
+
+            generateMovesFallbackFromCurrentState(targetPeg = 2) {
+                const moves = [];
+                const pegsSnapshot = this.pegs.map(stack => [...stack]);
+                const diskPositions = Array(this.numDisks).fill(0);
+
+                for (let pegIndex = 0; pegIndex < pegsSnapshot.length; pegIndex++) {
+                    for (const diskId of pegsSnapshot[pegIndex]) {
+                        diskPositions[diskId] = pegIndex;
+                    }
+                }
+
+                const moveDisk = (fromPeg, toPeg) => {
+                    const diskId = pegsSnapshot[fromPeg].pop();
+                    pegsSnapshot[toPeg].push(diskId);
+                    diskPositions[diskId] = toPeg;
+                    moves.push({ from: fromPeg, to: toPeg });
+                };
+
+                const solveSubset = (diskIndex, destinationPeg) => {
+                    if (diskIndex >= this.numDisks) return;
+
+                    const sourcePeg = diskPositions[diskIndex];
+                    if (sourcePeg === destinationPeg) {
+                        solveSubset(diskIndex + 1, destinationPeg);
+                        return;
+                    }
+
+                    const auxPeg = [0, 1, 2].find(peg => peg !== sourcePeg && peg !== destinationPeg);
+                    solveSubset(diskIndex + 1, auxPeg);
+                    moveDisk(sourcePeg, destinationPeg);
+                    solveSubset(diskIndex + 1, destinationPeg);
+                };
+
+                solveSubset(0, targetPeg);
+                return moves;
+            }
+
+            updateSpeed(delta, btnElement) {
+                let newSpeed = this.speedMultiplier + delta;
+                newSpeed = Math.max(0.5, Math.min(5.0, newSpeed));
+                
+                if (newSpeed !== this.speedMultiplier) {
+                    this.speedMultiplier = newSpeed;
+                    this.dom.speedDisplay.textContent = this.speedMultiplier.toFixed(2) + '×';
+                    this.dom.speedSlider.value = this.speedMultiplier;
+                    
+                    // Visual feedback
+                    this.dom.speedDisplay.classList.remove('speed-pulse');
+                    void this.dom.speedDisplay.offsetWidth; // Force reflow
+                    this.dom.speedDisplay.classList.add('speed-pulse');
+                    
+                    if (btnElement) {
+                        btnElement.classList.add('clicked');
+                        setTimeout(() => btnElement.classList.remove('clicked'), 300);
+                    }
+                }
+            }
+
+            togglePause() {
+                if (this.state === 'ANIMATING') {
+                    this.state = 'PAUSED';
+                    cancelAnimationFrame(this.animRequestId);
+                    clearInterval(this.timerInterval);
+                    this.elapsedMs = performance.now() - this.timerStartTimestamp;
+                    this.dom.iconPause.style.display = 'none';
+                    this.dom.iconPlay.style.display = 'block';
+                } else if (this.state === 'PAUSED') {
+                    this.state = 'ANIMATING';
+                    this.lastFrameTime = performance.now();
+                    this.animRequestId = requestAnimationFrame((t) => this.animationLoop(t));
+                    this.startTimer();
+                    this.dom.iconPause.style.display = 'block';
+                    this.dom.iconPlay.style.display = 'none';
+                }
+            }
+
+            reset() {
+                cancelAnimationFrame(this.animRequestId);
+                clearInterval(this.timerInterval);
+                this.state = 'IDLE';
+                this.isDraggingDisk = false;
+                this.draggedDiskId = null;
+                this.dragSourcePegIndex = null;
+                this.pendingDragDiskId = null;
+                this.pendingDragPegIndex = null;
+                this.pendingDragPointerId = null;
+                this.dragCurrentCoords = null;
+                this.trailPoints = [];
+                this.playerMoveCount = 0;
+                this.aiMoveCount = 0;
+                
+                // Init pegs array
+                this.pegs = [[], [], []];
+                for (let i = 0; i < this.numDisks; i++) {
+                    this.pegs[0].push(i); // 0 is largest (bottom), numDisks-1 is smallest (top)
+                }
+                
+                this.moves = [];
+                this.currentMoveIndex = 0;
+                this.elapsedMs = 0;
+                
+                this.updateUI();
+                this.createDisks();
+                this.positionDisksInstantly();
+                
+                const totalMoves = Math.pow(2, this.numDisks) - 1;
+                this.dom.debugText.innerHTML = `hanoi-solver v1.2<br>optimal: ${totalMoves} moves`;
+                
+                this.setStatus('Ready', 'ready');
+                this.dom.timerDisplay.textContent = '00:00:000';
+                this.dom.speedDisplay.textContent = this.speedMultiplier.toFixed(2) + '×';
+                this.dom.speedSlider.value = this.speedMultiplier;
+                this.updateMoveCounter();
+                
+                this.dom.btnPause.style.display = 'none';
+            }
+
+            createDisks() {
+                this.dom.disksLayer.innerHTML = '';
+                this.diskElements = [];
+                
+                // Update Peg Height dynamically
+                const pegHeight = Math.max(220, this.numDisks * (GEOMETRY.DISK_HEIGHT + GEOMETRY.STACK_GAP) + 40);
+                document.querySelectorAll('.peg').forEach(peg => peg.style.height = `${pegHeight}px`);
+                
+                for (let i = 0; i < this.numDisks; i++) {
+                    const minWidth = 40;
+                    const maxWidth = 200;
+                    const width = this.numDisks === 1 ? maxWidth : minWidth + ((this.numDisks - 1 - i) / (this.numDisks - 1)) * (maxWidth - minWidth);
+                    const diskColor = DISK_COLORS[i % DISK_COLORS.length];
+                    
+                    const disk = document.createElement('div');
+                    disk.className = 'disk';
+                    disk.style.width = `${width}px`;
+                    disk.style.marginLeft = `-${width/2}px`;
+                    disk.style.marginTop = `-${GEOMETRY.DISK_HEIGHT/2}px`;
+                    
+                    const surface = document.createElement('div');
+                    surface.className = 'disk-surface';
+                    surface.style.backgroundImage = `linear-gradient(90deg, ${hexToRgba(diskColor, 0.22)} 0%, ${hexToRgba(diskColor, 0.95)} 48%, ${hexToRgba(diskColor, 0.18)} 100%)`;
+                    surface.style.boxShadow = `0 0 14px ${hexToRgba(diskColor, 0.38)}, inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -6px 10px rgba(0,0,0,0.18)`;
+                    
+                    const front = document.createElement('div');
+                    front.className = 'disk-front';
+                    
+                    const glow = document.createElement('div');
+                    glow.className = 'disk-glow';
+                    
+                    disk.appendChild(surface);
+                    disk.appendChild(front);
+                    disk.appendChild(glow);
+
+                    disk.addEventListener('pointerdown', (event) => this.handleDiskPointerDown(i, event));
+                    disk.addEventListener('click', (event) => this.handleDiskClick(i, event));
+
+                    this.dom.disksLayer.appendChild(disk);
+                    this.diskElements.push(disk);
+                }
+            }
+
+            getPegCenterCoords(pegIndex) {
+                const pegWrapper = this.dom.pegWrappers[pegIndex];
+                const pegBase = pegWrapper.querySelector('.peg-base');
+                
+                const wrapperRect = pegWrapper.getBoundingClientRect();
+                const baseRect = pegBase.getBoundingClientRect();
+                const layerRect = this.dom.disksLayer.getBoundingClientRect();
+                
+                const x = wrapperRect.left + wrapperRect.width / 2 - layerRect.left;
+                const y = baseRect.top - layerRect.top;
+                
+                return { x, y };
+            }
+
+            getDiskTargetCoords(pegIndex, stackIndex) {
+                const center = this.getPegCenterCoords(pegIndex);
+                const y = center.y - (stackIndex * (GEOMETRY.DISK_HEIGHT + GEOMETRY.STACK_GAP)) - GEOMETRY.DISK_HEIGHT / 2;
+                return { x: center.x, y };
+            }
+
+            positionDisksInstantly() {
+                for (let p = 0; p < 3; p++) {
+                    for (let s = 0; s < this.pegs[p].length; s++) {
+                        const diskId = this.pegs[p][s];
+                        const coords = this.getDiskTargetCoords(p, s);
+                        const el = this.diskElements[diskId];
+                        el.style.transform = `translate(${coords.x}px, ${coords.y}px)`;
+                        el.classList.remove('moving');
+                        this.diskPegMap[diskId] = p;
+                    }
+                }
+            }
+
+            // Generate full solver array iterativelly to avoid stack overflow at max disks
+            generateMoves(n, src, dst, aux) {
+                const moves = [];
+                const stack = [{n, src, dst, aux, step: 0}];
+                
+                while(stack.length > 0) {
+                    const frame = stack.pop();
+                    if (frame.step === 0) {
+                        if (frame.n === 1) {
+                            moves.push({ from: frame.src, to: frame.dst });
+                        } else {
+                            // Reverse order push for DFS
+                            stack.push({n: frame.n - 1, src: frame.aux, dst: frame.dst, aux: frame.src, step: 0});
+                            stack.push({n: frame.n, src: frame.src, dst: frame.dst, aux: frame.aux, step: 1});
+                            stack.push({n: frame.n - 1, src: frame.src, dst: frame.aux, aux: frame.dst, step: 0});
+                        }
+                    } else {
+                        moves.push({ from: frame.src, to: frame.dst });
+                    }
+                }
+                return moves;
+            }
+
+            startSolve() {
+                if (this.state !== 'IDLE') return;
+                
+                this.clearSelection();
+                this.moves = this.generateMovesFromCurrentState(2);
+                if (this.moves.length === 0) {
+                    if (this.pegs[2].length === this.numDisks) {
+                        this.completeGame();
+                        return;
+                    }
+                    this.moves = this.generateMovesFallbackFromCurrentState(2);
+                }
+                this.currentMoveIndex = 0;
+                
+                this.state = 'ANIMATING';
+                this.startTimer();
+                this.trailPoints = [];
+                
+                this.updateUI();
+                this.dom.btnPause.style.display = 'flex';
+                this.dom.iconPause.style.display = 'block';
+                this.dom.iconPlay.style.display = 'none';
+                
+                this.setupNextMove();
+                
+                this.lastFrameTime = performance.now();
+                this.animRequestId = requestAnimationFrame((t) => this.animationLoop(t));
+            }
+
+            startTimer() {
+                clearInterval(this.timerInterval);
+                this.timerStartTimestamp = performance.now() - this.elapsedMs;
+                this.timerInterval = setInterval(() => {
+                    this.elapsedMs = performance.now() - this.timerStartTimestamp;
+                    const totalSeconds = Math.floor(this.elapsedMs / 1000);
+                    const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+                    const s = (totalSeconds % 60).toString().padStart(2, '0');
+                    const ms = Math.floor(this.elapsedMs % 1000).toString().padStart(3, '0');
+                    this.dom.timerDisplay.textContent = `${m}:${s}:${ms}`;
+                }, 50);
+            }
+
+            updateUI() {
+                const isIdle = this.state === 'IDLE';
+                this.dom.btnMinus.disabled = !isIdle;
+                this.dom.btnPlus.disabled = !isIdle;
+                this.dom.btnSolve.disabled = !isIdle;
+                
+                if (this.state === 'ANIMATING' || this.state === 'PAUSED') {
+                    this.setStatus(`Step ${this.currentMoveIndex} / ${this.moves.length}`, 'move');
+                }
+
+                this.updateMoveCounter();
+            }
+
+            setupNextMove() {
+                if (this.currentMoveIndex >= this.moves.length) {
+                    this.completeGame();
+                    return;
+                }
+
+                const move = this.moves[this.currentMoveIndex];
+                this.currentMoveIndex++;
+                
+                // Tick visualization
+                this.setStatus(`Move ${String.fromCharCode(65 + move.from)} → ${String.fromCharCode(65 + move.to)}`, 'move');
+                this.dom.stepCounter.style.opacity = '0.5';
+                setTimeout(() => this.dom.stepCounter.style.opacity = '1', 100);
+
+                this.aiMoveCount++;
+                this.updateMoveCounter();
+
+                // Update Logical State
+                this.movingDiskIndex = this.pegs[move.from].pop();
+                
+                const startStackIndex = this.pegs[move.from].length;
+                this.currentMoveStartCoords = this.getDiskTargetCoords(move.from, startStackIndex);
+                
+                const targetStackIndex = this.pegs[move.to].length;
+                this.currentMoveTargetCoords = this.getDiskTargetCoords(move.to, targetStackIndex);
+                
+                this.pegs[move.to].push(this.movingDiskIndex);
+                
+                // Cache Y position for Lift peak (based on tallest peg)
+                const pegBaseY = this.getPegCenterCoords(move.from).y;
+                this.currentTopY = pegBaseY - GEOMETRY.PEG_HEIGHT - GEOMETRY.LIFT_OFFSET;
+
+                const el = this.diskElements[this.movingDiskIndex];
+                el.classList.add('moving');
+
+                // Reset animation progress
+                this.animPhase = 0;
+                this.animProgress = 0;
+            }
+
+            completeGame() {
+                this.state = 'COMPLETE';
+                cancelAnimationFrame(this.animRequestId);
+                clearInterval(this.timerInterval);
+                this.dom.btnPause.style.display = 'none';
+                
+                this.setStatus(`✓ Solved in ${this.moves.length} moves`, 'solved');
+                this.updateMoveCounter();
+                this.updateUI();
+
+                // Fire celebration particles from goal peg (C)
+                const targetCenter = this.getPegCenterCoords(2);
+                this.particles.emit(targetCenter.x, targetCenter.y - 120, 20, '#10b981', true);
+                this.particles.emit(targetCenter.x, targetCenter.y - 120, 20, '#fbbf24', true);
+            }
+
+            createRipple(x, y) {
+                const ripple = document.createElement('div');
+                ripple.className = 'ripple';
+                ripple.style.left = `${x}px`;
+                ripple.style.top = `${y}px`;
+                this.dom.disksLayer.appendChild(ripple);
+                setTimeout(() => ripple.remove(), 400); // Remove element after animation
+            }
+
+            animationLoop(timestamp) {
+                if (this.state !== 'ANIMATING') return;
+
+                const dt = timestamp - this.lastFrameTime;
+                this.lastFrameTime = timestamp;
+
+                // Dynamically adjust duration per frame, allowing mid-flight speed changes
+                const liftDuration = Math.max(TIMING.MIN_PHASE, TIMING.BASE_LIFT / this.speedMultiplier);
+                const translateDuration = Math.max(TIMING.MIN_PHASE, TIMING.BASE_TRANSLATE / this.speedMultiplier);
+                const dropDuration = Math.max(TIMING.MIN_PHASE, TIMING.BASE_DROP / this.speedMultiplier);
+                const delayDuration = Math.max(0, TIMING.BASE_DELAY / this.speedMultiplier);
+
+                let phaseDuration = 1;
+                if (this.animPhase === 0) phaseDuration = liftDuration;
+                else if (this.animPhase === 1) phaseDuration = translateDuration;
+                else if (this.animPhase === 2) phaseDuration = dropDuration;
+                else if (this.animPhase === 3) phaseDuration = delayDuration;
+
+                this.animProgress += dt / phaseDuration;
+
+                if (this.animProgress >= 1) {
+                    this.animProgress -= 1; // carry over precision for next phase
+                    this.animPhase++;
+                    
+                    if (this.animPhase === 3) {
+                        // Drop Finished
+                        const el = this.diskElements[this.movingDiskIndex];
+                        el.classList.remove('moving');
+                        el.style.transform = `translate(${this.currentMoveTargetCoords.x}px, ${this.currentMoveTargetCoords.y}px)`;
+                        this.trailPoints = [];
+                        
+                        // Micro-interaction: ripple and subtle particles
+                        this.createRipple(this.currentMoveTargetCoords.x, this.currentMoveTargetCoords.y + GEOMETRY.DISK_HEIGHT/2);
+                        this.particles.emit(this.currentMoveTargetCoords.x, this.currentMoveTargetCoords.y, 5, '#10b981');
+                    }
+                    else if (this.animPhase > 3) {
+                        this.setupNextMove();
+                        if (this.state === 'COMPLETE') return;
+                    }
+                }
+
+                if (this.animPhase < 3) {
+                    const el = this.diskElements[this.movingDiskIndex];
+                    let p = Math.min(1, Math.max(0, this.animProgress));
+                    
+                    let currX = 0, currY = 0;
+
+                    if (this.animPhase === 0) {
+                        // Lift
+                        const e = cubicBezierLift(p);
+                        currX = this.currentMoveStartCoords.x;
+                        currY = this.currentMoveStartCoords.y + (this.currentTopY - this.currentMoveStartCoords.y) * e;
+                    } 
+                    else if (this.animPhase === 1) {
+                        // Translate (Arc Path)
+                        const e = easeInOutCubic(p);
+                        currX = this.currentMoveStartCoords.x + (this.currentMoveTargetCoords.x - this.currentMoveStartCoords.x) * e;
+                        const arcHeight = -40 * Math.sin(p * Math.PI); // Parabolic lift during horizontal translate
+                        currY = this.currentTopY + arcHeight;
+                    } 
+                    else if (this.animPhase === 2) {
+                        // Drop
+                        const e = easeIn(p);
+                        currX = this.currentMoveTargetCoords.x;
+                        currY = this.currentTopY + (this.currentMoveTargetCoords.y - this.currentTopY) * e;
+                    }
+
+                    el.style.transform = `translate(${currX}px, ${currY}px)`;
+                    this.recordTrailPoint(currX, currY);
+                }
+
+                this.animRequestId = requestAnimationFrame((t) => this.animationLoop(t));
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // BACKGROUND ANIMATION
+        // ---------------------------------------------------------------------
+        class BackgroundAnimation {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.entities = [];
+                this.waves = [];
+                
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                
+                this.initEntities();
+                this.tick = this.tick.bind(this);
+                requestAnimationFrame(this.tick);
+            }
+            
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+            
+            initEntities() {
+                // Particles (120 dots, faster speeds)
+                for(let i=0; i<120; i++) {
+                    const color = BACKGROUND_PALETTE[Math.floor(Math.random() * BACKGROUND_PALETTE.length)];
+                    this.entities.push({
+                        type: 'particle',
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight,
+                        size: Math.random() * 2 + 1.0,
+                        vx: (Math.random() - 0.5) * 0.8 * 1.25,
+                        vy: -(Math.random() * 0.3 + 0.1) * 1.25,
+                        opacity: Math.random() * 0.4 + 0.2,
+                        color,
+                        trail: []
+                    });
+                }
+                // Floating geometric shapes
+                for(let i=0; i<12; i++) {
+                    const color = BACKGROUND_PALETTE[Math.floor(Math.random() * BACKGROUND_PALETTE.length)];
+                    this.entities.push({
+                        type: 'shape',
+                        shapeType: Math.random() > 0.5 ? 'circle' : 'triangle',
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight,
+                        size: Math.random() * 35 + 10,
+                        speedY: -(Math.random() * 0.08 + 0.02) * 1.25,
+                        speedX: (Math.random() - 0.5) * 0.04 * 1.25,
+                        rotation: Math.random() * Math.PI * 2,
+                        rotSpeed: (Math.random() - 0.5) * 0.003 * 1.25,
+                        opacity: Math.random() * 0.03 + 0.01,
+                        color,
+                        trail: []
+                    });
+                }
+                // Ambient lights
+                for(let i=0; i<3; i++) {
+                    const color = BACKGROUND_PALETTE[Math.floor(Math.random() * BACKGROUND_PALETTE.length)];
+                    this.entities.push({
+                        type: 'light',
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight,
+                        vx: (Math.random() - 0.5) * 0.15 * 1.25,
+                        vy: (Math.random() - 0.5) * 0.15 * 1.25,
+                        size: Math.random() * 400 + 200,
+                        color,
+                        trail: []
+                    });
+                }
+            }
+            
+            tick() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Particle physics and collisions
+                let particles = this.entities.filter(e => e.type === 'particle');
+                for(let i=0; i<particles.length; i++) {
+                    for(let j=i+1; j<particles.length; j++) {
+                        let p1 = particles[i];
+                        let p2 = particles[j];
+                        let dx = p1.x - p2.x;
+                        let dy = p1.y - p2.y;
+                        let dist = Math.sqrt(dx*dx + dy*dy);
+                        let minDist = p1.size + p2.size + 1; // 1px buffer
+                        
+                        if (dist < minDist && dist > 0) {
+                            // Resolve overlap
+                            let overlap = minDist - dist;
+                            let nx = dx / dist;
+                            let ny = dy / dist;
+                            p1.x += nx * overlap / 2;
+                            p1.y += ny * overlap / 2;
+                            p2.x -= nx * overlap / 2;
+                            p2.y -= ny * overlap / 2;
+                            
+                            // Elastic bounce
+                            let kx = p1.vx - p2.vx;
+                            let ky = p1.vy - p2.vy;
+                            let p = (nx * kx + ny * ky); 
+                            p1.vx -= p * nx;
+                            p1.vy -= p * ny;
+                            p2.vx += p * nx;
+                            p2.vy += p * ny;
+                            
+                            // Emit wave on collision
+                            this.waves.push({
+                                x: (p1.x + p2.x) / 2,
+                                y: (p1.y + p2.y) / 2,
+                                radius: 2,
+                                maxRadius: Math.random() * 30 + 20,
+                                speed: 1.5 * 1.25,
+                                opacity: 0.6,
+                                color: p1.color || p2.color || '#ffffff'
+                            });
+                        }
+                    }
+                }
+                
+                // Render Waves
+                for (let i = this.waves.length - 1; i >= 0; i--) {
+                    let w = this.waves[i];
+                    w.radius += w.speed;
+                    w.opacity -= 0.015 * 1.25;
+                    
+                    if (w.opacity <= 0 || w.radius >= w.maxRadius) {
+                        this.waves.splice(i, 1);
+                        continue;
+                    }
+                    
+                    this.ctx.strokeStyle = hexToRgba(w.color, w.opacity);
+                    this.ctx.lineWidth = 1.5;
+                    this.ctx.beginPath();
+                    this.ctx.arc(w.x, w.y, w.radius, 0, Math.PI*2);
+                    this.ctx.stroke();
+                }
+                
+                for (let e of this.entities) {
+                    if (e.type === 'particle') {
+                        const prevX = e.x;
+                        const prevY = e.y;
+                        e.x += e.vx;
+                        e.y += e.vy;
+                        e.trail.push({ x: prevX, y: prevY });
+                        if (e.trail.length > 8) e.trail.shift();
+                        
+                        // Screen wrap
+                        if (e.y < -10) e.y = this.canvas.height + 10;
+                        if (e.y > this.canvas.height + 10) e.y = -10;
+                        if (e.x < -10) e.x = this.canvas.width + 10;
+                        if (e.x > this.canvas.width + 10) e.x = -10;
+
+                        if (e.trail.length > 1) {
+                            this.ctx.save();
+                            this.ctx.globalCompositeOperation = 'lighter';
+                            this.ctx.lineCap = 'round';
+                            for (let i = 1; i < e.trail.length; i++) {
+                                const start = e.trail[i - 1];
+                                const end = e.trail[i];
+                                const alpha = i / e.trail.length;
+                                this.ctx.strokeStyle = hexToRgba(e.color, alpha * 0.18);
+                                this.ctx.lineWidth = 0.8 + alpha * 1.8;
+                                this.ctx.beginPath();
+                                this.ctx.moveTo(start.x, start.y);
+                                this.ctx.lineTo(end.x, end.y);
+                                this.ctx.stroke();
+                            }
+                            this.ctx.restore();
+                        }
+                        
+                        this.ctx.fillStyle = hexToRgba(e.color, e.opacity);
+                        this.ctx.beginPath();
+                        this.ctx.arc(e.x, e.y, e.size, 0, Math.PI*2);
+                        this.ctx.fill();
+                    } else if (e.type === 'shape') {
+                        const prevX = e.x;
+                        const prevY = e.y;
+                        e.y += e.speedY;
+                        e.x += e.speedX;
+                        e.rotation += e.rotSpeed;
+                        e.trail.push({ x: prevX, y: prevY });
+                        if (e.trail.length > 6) e.trail.shift();
+                        if (e.y < -100) { e.y = this.canvas.height + 100; e.x = Math.random() * this.canvas.width; }
+
+                        if (e.trail.length > 1) {
+                            this.ctx.save();
+                            this.ctx.globalCompositeOperation = 'lighter';
+                            for (let i = 1; i < e.trail.length; i++) {
+                                const start = e.trail[i - 1];
+                                const end = e.trail[i];
+                                const alpha = i / e.trail.length;
+                                this.ctx.strokeStyle = hexToRgba(e.color, alpha * 0.08);
+                                this.ctx.lineWidth = 0.5 + alpha * 1.2;
+                                this.ctx.beginPath();
+                                this.ctx.moveTo(start.x, start.y);
+                                this.ctx.lineTo(end.x, end.y);
+                                this.ctx.stroke();
+                            }
+                            this.ctx.restore();
+                        }
+                        
+                        this.ctx.strokeStyle = hexToRgba(e.color, e.opacity);
+                        this.ctx.lineWidth = 1;
+                        this.ctx.beginPath();
+                        if (e.shapeType === 'circle') {
+                            this.ctx.arc(e.x, e.y, e.size, 0, Math.PI*2);
+                        } else if (e.shapeType === 'triangle') {
+                            for(let j=0; j<3; j++) {
+                                let angle = e.rotation + (j * Math.PI * 2 / 3);
+                                let px = e.x + Math.cos(angle) * e.size;
+                                let py = e.y + Math.sin(angle) * e.size;
+                                if (j===0) this.ctx.moveTo(px, py);
+                                else this.ctx.lineTo(px, py);
+                            }
+                            this.ctx.closePath();
+                        }
+                        this.ctx.stroke();
+                    } else if (e.type === 'light') {
+                        const prevX = e.x;
+                        const prevY = e.y;
+                        e.x += e.vx;
+                        e.y += e.vy;
+                        e.trail.push({ x: prevX, y: prevY });
+                        if (e.trail.length > 5) e.trail.shift();
+                        if (e.x < -e.size || e.x > this.canvas.width + e.size) e.vx *= -1;
+                        if (e.y < -e.size || e.y > this.canvas.height + e.size) e.vy *= -1;
+
+                        if (e.trail.length > 1) {
+                            this.ctx.save();
+                            this.ctx.globalCompositeOperation = 'lighter';
+                            for (let i = 1; i < e.trail.length; i++) {
+                                const start = e.trail[i - 1];
+                                const end = e.trail[i];
+                                const alpha = i / e.trail.length;
+                                this.ctx.strokeStyle = hexToRgba(e.color, alpha * 0.05);
+                                this.ctx.lineWidth = 2 + alpha * 6;
+                                this.ctx.beginPath();
+                                this.ctx.moveTo(start.x, start.y);
+                                this.ctx.lineTo(end.x, end.y);
+                                this.ctx.stroke();
+                            }
+                            this.ctx.restore();
+                        }
+                        
+                        let gradient = this.ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.size);
+                        gradient.addColorStop(0, hexToRgba(e.color, 0.18));
+                        gradient.addColorStop(1, 'rgba(0,0,0,0)');
+                        this.ctx.fillStyle = gradient;
+                        this.ctx.beginPath();
+                        this.ctx.arc(e.x, e.y, e.size, 0, Math.PI*2);
+                        this.ctx.fill();
+                    }
+                }
+                requestAnimationFrame(this.tick);
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // INITIALIZATION
+        // ---------------------------------------------------------------------
+        document.addEventListener('DOMContentLoaded', () => {
+            window.bgAnimation = new BackgroundAnimation('bg-canvas');
+            window.gameEngine = new HanoiGame();
+        });
+
+    </script>
+</body>
+</html>
