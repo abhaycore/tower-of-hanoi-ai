@@ -14,7 +14,7 @@ This project combines:
 
 ## 🎥 Preview
 
-Live Demo: https://your-vercel-link.vercel.app
+Live Demo:
 
 ---
 
