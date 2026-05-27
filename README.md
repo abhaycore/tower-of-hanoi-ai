@@ -126,4 +126,4 @@ Inspired by:
 
 # 👨‍💻 Author
 
-ABHAY SINGH CHOUHAN
+**ABHAY SINGH CHOUHAN**
